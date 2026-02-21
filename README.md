@@ -1,4 +1,4 @@
-# fastapi-audit-log
+# auditlog-fastapi
 
 Production-grade, reusable audit logging for FastAPI applications.
 
@@ -17,25 +17,25 @@ Production-grade, reusable audit logging for FastAPI applications.
 
 ```bash
 # Basic install
-pip install fastapi-audit-log
+pip install auditlog-fastapi
 
 # With SQLAlchemy support (Postgres, MySQL, SQLite)
-pip install fastapi-audit-log[sqlalchemy]
+pip install auditlog-fastapi[sqlalchemy]
 
 # With Tortoise ORM support
-pip install fastapi-audit-log[tortoise]
+pip install auditlog-fastapi[tortoise]
 
 # With SQLModel support
-pip install fastapi-audit-log[sqlmodel]
+pip install auditlog-fastapi[sqlmodel]
 
 # With MongoDB (Beanie) support
-pip install fastapi-audit-log[mongodb]
+pip install auditlog-fastapi[mongodb]
 
 # With raw asyncpg (PostgreSQL only) support
-pip install fastapi-audit-log[asyncpg]
+pip install auditlog-fastapi[asyncpg]
 
 # Everything
-pip install fastapi-audit-log[all]
+pip install auditlog-fastapi[all]
 ```
 
 ## Quick Start (SQLAlchemy + SQLite)
