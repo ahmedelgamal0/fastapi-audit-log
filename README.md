@@ -143,6 +143,34 @@ async def create_item(item_id: str):
     return {"status": "ok"}
 ```
 
+## Retrieving Audit Logs
+
+`fastapi-audit-log` provides a built-in helper to add a route for querying and filtering your audit logs.
+
+```python
+from fastapi import FastAPI
+from fastapi_audit_log import add_audit_log_routes
+
+app = FastAPI(...)
+
+# Register the GET /audit-logs route
+add_audit_log_routes(
+    app,
+    path="/audit-logs",      # default
+    tags=["Audit Logs"]      # optional tags for OpenAPI
+)
+```
+
+### Filtering and Pagination
+
+The added route supports several query parameters:
+
+*   **Pagination:** `limit` (default 100, max 1000) and `offset` (default 0).
+*   **Filters:** `method`, `path`, `status_code`, `user_id`, and `action`.
+
+Example request:
+`GET /audit-logs?method=POST&status_code=201&limit=20`
+
 ## Configuration Reference (AuditConfig)
 
 | Parameter | Type | Default | Description |
