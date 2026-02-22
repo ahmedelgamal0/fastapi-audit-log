@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "auditlog-fastapi"
-version = "0.2.0"
+version = "0.3.0"
 description = "Production-grade, reusable audit logging for FastAPI applications."
 authors = ["Ahmed Elgamal <ahmed@example.com>"]
 readme = "README.md"
