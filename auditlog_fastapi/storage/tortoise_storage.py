@@ -1,6 +1,8 @@
+from collections.abc import Iterable
 from typing import Any
 
 from tortoise import Tortoise
+from tortoise.models import Model
 
 from ..db.tortoise_model import make_tortoise_model
 from ..exceptions import AuditStorageConnectionError
@@ -11,11 +13,14 @@ from .base import AuditStorage
 class TortoiseStorage(AuditStorage):
     def __init__(self, config: Any):
         self.config = config
-        self.AuditLog = None
+        self.AuditLog: type[Model] | None = None
 
     async def startup(self) -> None:
         try:
-            modules = {"audit": ["auditlog_fastapi.db.tortoise_model"]}
+            # Use Mapping to fix variance issues
+            modules: dict[str, Iterable[str | Any]] = {
+                "audit": ["auditlog_fastapi.db.tortoise_model"]
+            }
             if self.config.tortoise_modules:
                 modules.update(self.config.tortoise_modules)
 
@@ -33,11 +38,13 @@ class TortoiseStorage(AuditStorage):
         await Tortoise.close_connections()
 
     async def save(self, entry: AuditEntry) -> None:
+        assert self.AuditLog is not None
         await self.AuditLog.create(**entry.model_dump())
 
     async def save_batch(self, entries: list[AuditEntry]) -> None:
         if not entries:
             return
+        assert self.AuditLog is not None
         await self.AuditLog.bulk_create(
             [self.AuditLog(**e.model_dump()) for e in entries]
         )
@@ -52,6 +59,7 @@ class TortoiseStorage(AuditStorage):
         user_id: str | None = None,
         action: str | None = None,
     ) -> list[AuditEntry]:
+        assert self.AuditLog is not None
         query = self.AuditLog.all().order_by("-timestamp")
 
         if method:

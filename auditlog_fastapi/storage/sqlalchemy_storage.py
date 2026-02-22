@@ -1,11 +1,11 @@
 import contextlib
 import json
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import insert, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from ..db.sqlalchemy_table import make_audit_table
+from ..db.sqlalchemy_table import AuditBase, make_audit_table
 from ..exceptions import AuditStorageConnectionError
 from ..models import AuditEntry
 from .base import AuditStorage
@@ -33,7 +33,7 @@ class SQLAlchemyStorage(AuditStorage):
         self.SessionLocal = async_sessionmaker(
             bind=self.engine, expire_on_commit=False, class_=AsyncSession
         )
-        self.AuditLog = None
+        self.AuditLog: type[AuditBase] | None = None
         self._use_jsonb = False
         self._is_sqlite = config.dsn.startswith("sqlite")
 
@@ -51,6 +51,7 @@ class SQLAlchemyStorage(AuditStorage):
             if self.config.auto_create_table:
                 async with self.engine.begin() as conn:
                     # Use the specific mapper for this storage instance
+                    assert self.AuditLog is not None
                     await conn.run_sync(self.AuditLog.metadata.create_all)
         except Exception as e:
             raise AuditStorageConnectionError(
@@ -60,7 +61,7 @@ class SQLAlchemyStorage(AuditStorage):
     async def shutdown(self) -> None:
         await self.engine.dispose()
 
-    def _to_db_dict(self, entry: AuditEntry) -> dict:
+    def _to_db_dict(self, entry: AuditEntry) -> dict[str, Any]:
         data = entry.model_dump()
 
         # Handle SQLite-specific serialization
@@ -86,6 +87,7 @@ class SQLAlchemyStorage(AuditStorage):
         return AuditEntry.model_validate(data)
 
     async def save(self, entry: AuditEntry) -> None:
+        assert self.AuditLog is not None
         async with self.SessionLocal() as session:
             async with session.begin():
                 db_entry = self.AuditLog(**self._to_db_dict(entry))
@@ -95,6 +97,7 @@ class SQLAlchemyStorage(AuditStorage):
     async def save_batch(self, entries: list[AuditEntry]) -> None:
         if not entries:
             return
+        assert self.AuditLog is not None
         async with self.SessionLocal() as session:
             async with session.begin():
                 await session.execute(
@@ -112,24 +115,27 @@ class SQLAlchemyStorage(AuditStorage):
         user_id: str | None = None,
         action: str | None = None,
     ) -> list[AuditEntry]:
+        assert self.AuditLog is not None
+        audit_log_cls = cast(Any, self.AuditLog)
         async with self.SessionLocal() as session:
-            stmt = select(self.AuditLog).order_by(self.AuditLog.timestamp.desc())
+            stmt = select(audit_log_cls).order_by(audit_log_cls.timestamp.desc())
 
             if method:
-                stmt = stmt.where(self.AuditLog.method == method)
+                stmt = stmt.where(audit_log_cls.method == method)
             if path:
-                stmt = stmt.where(self.AuditLog.path == path)
+                stmt = stmt.where(audit_log_cls.path == path)
             if status_code:
-                stmt = stmt.where(self.AuditLog.status_code == status_code)
+                stmt = stmt.where(audit_log_cls.status_code == status_code)
             if user_id:
-                stmt = stmt.where(self.AuditLog.user_id == user_id)
+                stmt = stmt.where(audit_log_cls.user_id == user_id)
             if action:
-                stmt = stmt.where(self.AuditLog.action == action)
+                stmt = stmt.where(audit_log_cls.action == action)
 
             result = await session.execute(stmt.limit(limit).offset(offset))
             db_entries = result.scalars().all()
             return [self._from_db_model(e) for e in db_entries]
 
     @property
-    def metadata(self):
+    def metadata(self) -> Any:
+        assert self.AuditLog is not None
         return self.AuditLog.metadata

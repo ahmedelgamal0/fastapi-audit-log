@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlmodel import Field, SQLModel
 
 
-def make_sqlmodel_table(table_name: str):
+def make_sqlmodel_table(table_name: str) -> type[SQLModel]:
     """Dynamically create the SQLModel ORM model class with the given table name."""
 
     class AuditLog(SQLModel, table=True):

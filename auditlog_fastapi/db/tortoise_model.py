@@ -1,8 +1,10 @@
+from typing import Any
+
 from tortoise import fields
 from tortoise.models import Model
 
 
-def make_tortoise_model(table_name: str):
+def make_tortoise_model(table_name: str) -> type[Model]:
     """Dynamically create the Tortoise ORM model class with the given table name."""
 
     class AuditLog(Model):
@@ -16,15 +18,15 @@ def make_tortoise_model(table_name: str):
         user_agent = fields.CharField(max_length=512, null=True)
         method = fields.CharField(max_length=10)
         path = fields.CharField(max_length=2048, index=True)
-        query_params = fields.JSONField(null=True)
+        query_params: Any = fields.JSONField(null=True)
         status_code = fields.IntField(null=True, index=True)
-        request_body = fields.JSONField(null=True)
-        response_body = fields.JSONField(null=True)
+        request_body: Any = fields.JSONField(null=True)
+        response_body: Any = fields.JSONField(null=True)
         duration_ms = fields.FloatField(null=True)
         action = fields.CharField(max_length=255, null=True, index=True)
         resource_type = fields.CharField(max_length=255, null=True, index=True)
         resource_id = fields.CharField(max_length=255, null=True, index=True)
-        extra = fields.JSONField(null=True)
+        extra: Any = fields.JSONField(null=True)
         error = fields.TextField(null=True)
 
         class Meta:

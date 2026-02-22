@@ -70,7 +70,7 @@ def configure(config: AuditConfig) -> "AuditStorage":
     storage = resolve_storage(config)
     _registry["storage"] = storage
     _registry["config"] = config
-    return typing.cast("AuditStorage", storage)
+    return storage
 
 
 def get_storage() -> "AuditStorage":

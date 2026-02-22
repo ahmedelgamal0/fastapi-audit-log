@@ -1,6 +1,6 @@
 import contextlib
 import json
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import insert, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -34,7 +34,7 @@ class SQLModelStorage(AuditStorage):
         self.SessionLocal = async_sessionmaker(
             bind=self.engine, expire_on_commit=False, class_=AsyncSession
         )
-        self.AuditLog = None
+        self.AuditLog: type[SQLModel] | None = None
 
     async def startup(self) -> None:
         try:
@@ -54,7 +54,7 @@ class SQLModelStorage(AuditStorage):
     async def shutdown(self) -> None:
         await self.engine.dispose()
 
-    def _to_db_dict(self, entry: AuditEntry) -> dict:
+    def _to_db_dict(self, entry: AuditEntry) -> dict[str, Any]:
         data = entry.model_dump()
         # SQLModel uses str | None for JSON fields, so we must serialize
         for field in ["query_params", "request_body", "response_body", "extra"]:
@@ -71,6 +71,7 @@ class SQLModelStorage(AuditStorage):
         return AuditEntry.model_validate(data)
 
     async def save(self, entry: AuditEntry) -> None:
+        assert self.AuditLog is not None
         async with self.SessionLocal() as session:
             async with session.begin():
                 db_entry = self.AuditLog(**self._to_db_dict(entry))
@@ -80,6 +81,7 @@ class SQLModelStorage(AuditStorage):
     async def save_batch(self, entries: list[AuditEntry]) -> None:
         if not entries:
             return
+        assert self.AuditLog is not None
         async with self.SessionLocal() as session:
             async with session.begin():
                 await session.execute(
@@ -97,19 +99,21 @@ class SQLModelStorage(AuditStorage):
         user_id: str | None = None,
         action: str | None = None,
     ) -> list[AuditEntry]:
+        assert self.AuditLog is not None
+        audit_log_cls = cast(Any, self.AuditLog)
         async with self.SessionLocal() as session:
-            stmt = select(self.AuditLog).order_by(self.AuditLog.timestamp.desc())
+            stmt = select(audit_log_cls).order_by(audit_log_cls.timestamp.desc())
 
             if method:
-                stmt = stmt.where(self.AuditLog.method == method)
+                stmt = stmt.where(audit_log_cls.method == method)
             if path:
-                stmt = stmt.where(self.AuditLog.path == path)
+                stmt = stmt.where(audit_log_cls.path == path)
             if status_code:
-                stmt = stmt.where(self.AuditLog.status_code == status_code)
+                stmt = stmt.where(audit_log_cls.status_code == status_code)
             if user_id:
-                stmt = stmt.where(self.AuditLog.user_id == user_id)
+                stmt = stmt.where(audit_log_cls.user_id == user_id)
             if action:
-                stmt = stmt.where(self.AuditLog.action == action)
+                stmt = stmt.where(audit_log_cls.action == action)
 
             result = await session.execute(stmt.limit(limit).offset(offset))
             db_entries = result.scalars().all()
