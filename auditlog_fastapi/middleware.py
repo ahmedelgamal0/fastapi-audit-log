@@ -2,7 +2,7 @@ import json
 import sys
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Request, Response
 from starlette.background import BackgroundTasks
@@ -57,8 +57,14 @@ class AuditMiddleware(BaseHTTPMiddleware):
             from .config import _registry
 
             config = _registry.get("config")
-            if config and config.on_storage_error:
-                return config.on_storage_error
+            if (
+                config
+                and hasattr(config, "on_storage_error")
+                and config.on_storage_error
+            ):
+                return cast(
+                    Callable[[Exception, AuditEntry], None], config.on_storage_error
+                )
         except Exception:
             pass
 
@@ -128,6 +134,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
             _current_entry.reset(token)
 
+        assert response is not None
         return response
 
     async def _safe_save(self, entry: AuditEntry) -> None:
@@ -154,7 +161,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
             # Reconstruct request for next middleware/route
             # This is a bit of a hack for BaseHTTPMiddleware
-            async def receive():
+            async def receive() -> dict[str, Any]:
                 return {"type": "http.request", "body": body_bytes}
 
             request._receive = receive

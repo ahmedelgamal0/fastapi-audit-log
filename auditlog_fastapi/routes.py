@@ -1,3 +1,6 @@
+from collections.abc import Sequence
+from typing import Any
+
 from fastapi import APIRouter, FastAPI, Query
 
 from .config import get_storage
@@ -6,13 +9,13 @@ from .config import get_storage
 def add_audit_log_routes(
     app: FastAPI,
     path: str = "/audit-logs",
-    tags: list[str] | None = None,
+    tags: Sequence[str] | None = None,
 ) -> None:
     """
     Automatically adds a GET route to the FastAPI application for retrieving
     and filtering audit logs.
     """
-    router = APIRouter(tags=tags or ["Audit Logs"])
+    router = APIRouter(tags=list(tags) if tags else ["Audit Logs"])
 
     @router.get(path)
     async def get_audit_logs(
@@ -23,7 +26,7 @@ def add_audit_log_routes(
         status_code: int | None = Query(None, description="Filter by status code"),
         user_id: str | None = Query(None, description="Filter by user ID"),
         action: str | None = Query(None, description="Filter by action name"),
-    ):
+    ) -> list[dict[str, Any]]:
         storage = get_storage()
         entries = await storage.get_entries(
             limit=limit,

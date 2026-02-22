@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,7 +12,7 @@ from .base import AuditStorage
 class BeanieStorage(AuditStorage):
     def __init__(self, config: Any):
         self.config = config
-        self.client = None
+        self.client: AsyncIOMotorClient[Any] | None = None
 
     async def startup(self) -> None:
         try:
@@ -20,8 +20,10 @@ class BeanieStorage(AuditStorage):
             # Override collection name
             AuditLogDocument.Settings.name = self.config.table_name
 
+            assert self.client is not None
+            db = self.client[self.config.mongodb_database]
             await init_beanie(
-                database=self.client[self.config.mongodb_database],
+                database=cast(Any, db),
                 document_models=[AuditLogDocument],
             )
         except Exception as e:

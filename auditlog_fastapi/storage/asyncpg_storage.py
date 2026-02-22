@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-import asyncpg
+import asyncpg  # type: ignore
 
 from ..exceptions import AuditStorageConnectionError
 from ..models import AuditEntry
@@ -11,7 +11,7 @@ from .base import AuditStorage
 class AsyncpgStorage(AuditStorage):
     def __init__(self, config: Any):
         self.config = config
-        self._pool = None
+        self._pool: asyncpg.Pool | None = None
 
     async def startup(self) -> None:
         try:
@@ -20,6 +20,7 @@ class AsyncpgStorage(AuditStorage):
             )
 
             if self.config.auto_create_table:
+                assert self._pool is not None
                 async with self._pool.acquire() as conn:
                     await conn.execute(f"""
                         CREATE TABLE IF NOT EXISTS {self.config.table_name} (
@@ -64,7 +65,7 @@ class AsyncpgStorage(AuditStorage):
         if self._pool:
             await self._pool.close()
 
-    def _to_db_tuple(self, entry: AuditEntry) -> tuple:
+    def _to_db_tuple(self, entry: AuditEntry) -> tuple[Any, ...]:
         return (
             entry.id,
             entry.timestamp,
@@ -105,6 +106,7 @@ class AsyncpgStorage(AuditStorage):
                 $10, $11, $12, $13, $14, $15, $16, $17, $18
             )
         """
+        assert self._pool is not None
         async with self._pool.acquire() as conn:
             await conn.execute(sql, *self._to_db_tuple(entry))
 
@@ -122,6 +124,7 @@ class AsyncpgStorage(AuditStorage):
                 $10, $11, $12, $13, $14, $15, $16, $17, $18
             )
         """
+        assert self._pool is not None
         async with self._pool.acquire() as conn:
             await conn.executemany(sql, [self._to_db_tuple(e) for e in entries])
 
@@ -136,7 +139,7 @@ class AsyncpgStorage(AuditStorage):
         action: str | None = None,
     ) -> list[AuditEntry]:
         conditions = []
-        params = []
+        params: list[Any] = []
 
         if method:
             params.append(method)
@@ -163,6 +166,7 @@ class AsyncpgStorage(AuditStorage):
             LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
         """
 
+        assert self._pool is not None
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(sql, *params, limit, offset)
             return [self._from_row(row) for row in rows]
