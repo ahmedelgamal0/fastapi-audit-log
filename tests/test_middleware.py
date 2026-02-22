@@ -5,13 +5,13 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from fastapi_audit_log import (
+from auditlog_fastapi import (
     get_storage,
     set_audit_action,
     set_audit_extra,
     set_audit_resource,
 )
-from fastapi_audit_log.filters import MASK_VALUE
+from auditlog_fastapi.filters import MASK_VALUE
 
 
 @pytest.mark.asyncio

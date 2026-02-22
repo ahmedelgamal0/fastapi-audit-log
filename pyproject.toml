@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Production-grade, reusable audit logging for FastAPI applications."
 authors = ["Ahmed Elgamal <ahmed@example.com>"]
 readme = "README.md"
-packages = [{include = "fastapi_audit_log"}]
+packages = [{include = "auditlog_fastapi"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"

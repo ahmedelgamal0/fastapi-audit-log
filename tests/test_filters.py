@@ -1,4 +1,4 @@
-from fastapi_audit_log.filters import mask_sensitive_fields
+from auditlog_fastapi.filters import mask_sensitive_fields
 
 
 def test_mask_sensitive_fields_top_level():

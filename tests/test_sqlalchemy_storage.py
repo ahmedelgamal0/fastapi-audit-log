@@ -4,9 +4,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import func, select
 
-from fastapi_audit_log.config import AuditConfig
-from fastapi_audit_log.models import AuditEntry
-from fastapi_audit_log.storage.sqlalchemy_storage import SQLAlchemyStorage
+from auditlog_fastapi.config import AuditConfig
+from auditlog_fastapi.models import AuditEntry
+from auditlog_fastapi.storage.sqlalchemy_storage import SQLAlchemyStorage
 
 
 @pytest.fixture

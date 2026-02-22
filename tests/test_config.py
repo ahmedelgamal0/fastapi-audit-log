@@ -1,12 +1,12 @@
 import pytest
 
-from fastapi_audit_log.config import AuditConfig, _registry, configure, get_storage
-from fastapi_audit_log.exceptions import (
+from auditlog_fastapi.config import AuditConfig, _registry, configure, get_storage
+from auditlog_fastapi.exceptions import (
     AuditAlreadyConfiguredError,
     AuditConfigurationError,
     AuditNotConfiguredError,
 )
-from fastapi_audit_log.storage.sqlalchemy_storage import SQLAlchemyStorage
+from auditlog_fastapi.storage.sqlalchemy_storage import SQLAlchemyStorage
 
 
 @pytest.fixture(autouse=True)

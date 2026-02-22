@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from fastapi_audit_log import (
+from auditlog_fastapi import (
     AuditConfig,
     AuditMiddleware,
     add_audit_log_routes,

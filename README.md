@@ -42,7 +42,7 @@ pip install auditlog-fastapi[all]
 
 ```python
 from fastapi import FastAPI
-from fastapi_audit_log import AuditMiddleware, AuditConfig, create_audit_lifespan
+from auditlog_fastapi import AuditMiddleware, AuditConfig, create_audit_lifespan
 
 # 1. Configure the audit log
 config = AuditConfig(
@@ -126,14 +126,14 @@ config = AuditConfig(
 
 ```python
 # In alembic/env.py — include audit table in your migrations
-from fastapi_audit_log.db.sqlalchemy_table import AuditBase
+from auditlog_fastapi.db.sqlalchemy_table import AuditBase
 target_metadata = [YourBase.metadata, AuditBase.metadata]
 ```
 
 ## Enriching Logs from Routes
 
 ```python
-from fastapi_audit_log import set_audit_action, set_audit_resource, set_audit_extra
+from auditlog_fastapi import set_audit_action, set_audit_resource, set_audit_extra
 
 @app.post("/items")
 async def create_item(item_id: str):
@@ -145,11 +145,11 @@ async def create_item(item_id: str):
 
 ## Retrieving Audit Logs
 
-`fastapi-audit-log` provides a built-in helper to add a route for querying and filtering your audit logs.
+`auditlog-fastapi` provides a built-in helper to add a route for querying and filtering your audit logs.
 
 ```python
 from fastapi import FastAPI
-from fastapi_audit_log import add_audit_log_routes
+from auditlog_fastapi import add_audit_log_routes
 
 app = FastAPI(...)
 
