@@ -7,12 +7,12 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from fastapi_audit_log import (
+from auditlog_fastapi import (
     AuditConfig,
     AuditMiddleware,
     create_audit_lifespan,
 )
-from fastapi_audit_log.config import _registry
+from auditlog_fastapi.config import _registry
 
 
 @pytest.fixture(scope="session")

@@ -15,7 +15,7 @@ class TortoiseStorage(AuditStorage):
 
     async def startup(self) -> None:
         try:
-            modules = {"audit": ["fastapi_audit_log.db.tortoise_model"]}
+            modules = {"audit": ["auditlog_fastapi.db.tortoise_model"]}
             if self.config.tortoise_modules:
                 modules.update(self.config.tortoise_modules)
 

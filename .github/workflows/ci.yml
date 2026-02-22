@@ -57,7 +57,7 @@ jobs:
         
       - name: Run tests with coverage
         run: |
-          poetry run pytest --cov=fastapi_audit_log --cov-report=xml --cov-report=term-missing
+          poetry run pytest --cov=auditlog_fastapi --cov-report=xml --cov-report=term-missing
           
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
