@@ -83,4 +83,3 @@ def get_storage() -> "AuditStorage":
             "Audit storage has not been configured. Call configure() first."
         )
     return typing.cast("AuditStorage", _registry["storage"])
-
