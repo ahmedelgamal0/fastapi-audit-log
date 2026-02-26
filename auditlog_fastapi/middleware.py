@@ -51,8 +51,6 @@ class AuditMiddleware(BaseHTTPMiddleware):
     def _get_on_error(self) -> Callable[[Exception, AuditEntry], None]:
         if self.on_error:
             return self.on_error
-
-        # Try to get from config if available
         try:
             from .config import _registry
 
@@ -67,11 +65,72 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 )
         except Exception:
             pass
-
         return self._default_on_error
 
-    def _default_on_error(self, exc: Exception, entry: AuditEntry) -> None:  # noqa: ARG002
+    def _default_on_error(
+        self,
+        exc: Exception,
+        entry: AuditEntry,  # noqa: ARG002
+    ) -> None:
         print(f"Audit log storage failure: {exc}", file=sys.stderr)  # noqa: T201
+
+    async def _resolve_user(self, request: Request) -> dict[str, Any]:
+        """
+        Try all known patterns to extract user identity from the request.
+        Priority order:
+          1. Caller-provided get_user callable (most explicit)
+          2. Starlette's built-in AuthenticationMiddleware (request.scope['user'])
+          3. Common convention: request.state.user set by app middleware
+        Returns a dict with 'user_id' and/or 'username', empty dict on failure.
+        """
+        # Pattern 1: caller-provided async callable
+        if self.get_user:
+            try:
+                return await self.get_user(request)
+            except Exception as e:
+                print(f"[audit] get_user() raised: {e}", file=sys.stderr)  # noqa: T201
+
+        # Pattern 2: Starlette's built-in AuthenticationMiddleware
+        # Direct scope check avoids AssertionError if middleware is missing
+        starlette_user = request.scope.get("user")
+        if starlette_user and getattr(starlette_user, "is_authenticated", False):
+            return {
+                "user_id": str(getattr(starlette_user, "identity", "") or ""),
+                "username": getattr(starlette_user, "display_name", None),
+            }
+
+        # Pattern 3: request.state.user set by app middleware or dependency
+        state_user = getattr(request.state, "user", None)
+        if state_user:
+            if isinstance(state_user, dict):
+                return state_user
+
+            # Object — try common attribute names
+            user_id = None
+            for attr in ("user_id", "id", "sub"):
+                val = getattr(state_user, attr, None)
+                if val is not None:
+                    user_id = str(val)
+                    break
+
+            username = None
+            for attr in ("username", "email", "name"):
+                val = getattr(state_user, attr, None)
+                if val is not None:
+                    username = str(val)
+                    break
+
+            if user_id or username:
+                return {"user_id": user_id, "username": username}
+
+        return {}
+
+    def _apply_user(self, entry: AuditEntry, user_info: dict[str, Any]) -> None:
+        """Apply user info to entry, never overwriting an already-set value."""
+        if not entry.user_id and user_info.get("user_id"):
+            entry.user_id = str(user_info["user_id"])
+        if not entry.username and user_info.get("username"):
+            entry.username = str(user_info["username"])
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -81,7 +140,6 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         start_time = time.perf_counter()
 
-        # Prepare entry
         entry = AuditEntry(
             method=request.method,
             path=request.url.path,
@@ -90,24 +148,16 @@ class AuditMiddleware(BaseHTTPMiddleware):
             user_agent=request.headers.get("user-agent"),
         )
 
-        # Get user info if provided
-        if self.get_user:
-            try:
-                user_info = await self.get_user(request)
-                if user_info.get("user_id"):
-                    entry.user_id = str(user_info.get("user_id"))
-                entry.username = user_info.get("username")
-            except Exception:
-                pass
+        # Attempt 1: capture user BEFORE call_next
+        # Works when auth middleware runs before AuditMiddleware
+        self._apply_user(entry, await self._resolve_user(request))
 
-        # Request body
         if self.log_request_body:
             body = await self._get_request_body(request)
             if body:
                 entry.request_body = mask_sensitive_fields(body, self.mask_fields)
 
         token = _current_entry.set(entry)
-
         response: Response | None = None
 
         try:
@@ -115,26 +165,24 @@ class AuditMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             entry.error = str(e)
             entry.duration_ms = (time.perf_counter() - start_time) * 1000
-            # If we don't have a response, we still want to save the entry
-            await self._safe_save(entry)
-            raise e from None
-        finally:
-            if not entry.error:  # If no error, handle normally in finally
-                duration = (time.perf_counter() - start_time) * 1000
-                entry.duration_ms = duration
-                if response:
-                    entry.status_code = response.status_code
-
-                # Use BackgroundTasks to save
-                background_tasks = BackgroundTasks()
-                background_tasks.add_task(self._safe_save, entry)
-
-                if response:
-                    response.background = background_tasks
-
             _current_entry.reset(token)
+            await self._safe_save(entry)
+            raise
 
-        assert response is not None
+        _current_entry.reset(token)
+
+        # Attempt 2: capture user AFTER call_next
+        # Works when auth is handled inside route dependencies that set request.state.user  # noqa: E501
+        # _apply_user will not overwrite values already set in Attempt 1
+        self._apply_user(entry, await self._resolve_user(request))
+
+        entry.duration_ms = (time.perf_counter() - start_time) * 1000
+        entry.status_code = response.status_code
+
+        background_tasks = BackgroundTasks()
+        background_tasks.add_task(self._safe_save, entry)
+        response.background = background_tasks
+
         return response
 
     async def _safe_save(self, entry: AuditEntry) -> None:
@@ -159,8 +207,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
             if not body_bytes:
                 return None
 
-            # Reconstruct request for next middleware/route
-            # This is a bit of a hack for BaseHTTPMiddleware
+            # Reconstruct the receive channel so the route handler
+            # can still read the body after we consumed it
             async def receive() -> dict[str, Any]:
                 return {"type": "http.request", "body": body_bytes}
 
